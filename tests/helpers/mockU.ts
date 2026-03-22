@@ -1,4 +1,4 @@
-import type { IUrsamuSDK } from "@ursamu/ursamu";
+import type { IUrsamuSDK } from "jsr:@ursamu/ursamu";
 
 /** Minimal stand-in for an engine DB object — avoids importing IDBObj which is not re-exported. */
 export interface IPlayer {

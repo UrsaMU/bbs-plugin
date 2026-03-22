@@ -1,5 +1,5 @@
-import type { IPlugin } from "@ursamu/ursamu";
-import { registerPluginRoute } from "@ursamu/ursamu";
+import type { IPlugin } from "jsr:@ursamu/ursamu";
+import { registerPluginRoute } from "jsr:@ursamu/ursamu";
 import { bboardsRouteHandler } from "./router.ts";
 import { startCleanupInterval } from "./cleanup.ts";
 import "./commands/reading.ts";

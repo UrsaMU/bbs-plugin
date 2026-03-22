@@ -1,4 +1,4 @@
-import { dbojs } from "@ursamu/ursamu";
+import { dbojs } from "jsr:@ursamu/ursamu";
 import { boards, posts, getNextPostNum } from "./db.ts";
 import type { IBoard, IPost } from "./db.ts";
 import { getAllBoards, getBoardPosts, getPost } from "./query.ts";

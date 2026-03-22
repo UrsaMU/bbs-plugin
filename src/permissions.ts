@@ -1,5 +1,5 @@
-import { dbojs } from "@ursamu/ursamu";
-import type { IUrsamuSDK } from "@ursamu/ursamu";
+import { dbojs } from "jsr:@ursamu/ursamu";
+import type { IUrsamuSDK } from "jsr:@ursamu/ursamu";
 import type { IBoard } from "./db.ts";
 
 /** Returns true if the caller has staff-level privilege. */

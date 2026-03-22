@@ -1,5 +1,5 @@
-import { addCmd } from "@ursamu/ursamu";
-import type { IUrsamuSDK } from "@ursamu/ursamu";
+import { addCmd } from "jsr:@ursamu/ursamu";
+import type { IUrsamuSDK } from "jsr:@ursamu/ursamu";
 import { getAllBoards, findBoard, getBoardPosts } from "../query.ts";
 import { canRead } from "../permissions.ts";
 import { isMember, setMembership, getNotify, setNotify, getSig, setSig, clearSig, getUnreadCount } from "../tracking.ts";

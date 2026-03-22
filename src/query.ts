@@ -1,4 +1,4 @@
-import { dbojs } from "@ursamu/ursamu";
+import { dbojs } from "jsr:@ursamu/ursamu";
 import { boards, posts } from "./db.ts";
 import type { IBoard, IPost, IReply } from "./db.ts";
 

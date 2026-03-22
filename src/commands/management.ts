@@ -1,5 +1,5 @@
-import { addCmd } from "@ursamu/ursamu";
-import type { IUrsamuSDK } from "@ursamu/ursamu";
+import { addCmd } from "jsr:@ursamu/ursamu";
+import type { IUrsamuSDK } from "jsr:@ursamu/ursamu";
 import { posts, boards } from "../db.ts";
 import type { IPost, IFlag } from "../db.ts";
 import { findBoard, getPost, getBoardPosts, renumberPosts } from "../query.ts";

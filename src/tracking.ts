@@ -1,4 +1,4 @@
-import type { IUrsamuSDK } from "@ursamu/ursamu";
+import type { IUrsamuSDK } from "jsr:@ursamu/ursamu";
 import { boards } from "./db.ts";
 import type { IBBConfig, IDraft } from "./db.ts";
 import { getBoardPosts } from "./query.ts";

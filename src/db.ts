@@ -1,4 +1,4 @@
-import { DBO } from "@ursamu/ursamu";
+import { DBO } from "jsr:@ursamu/ursamu";
 
 // ---------------------------------------------------------------------------
 // Types
