@@ -54,13 +54,13 @@ Examples:
 
     if (eqIdx !== -1) {
       // Quick-post
-      const subject  = rest.slice(0, eqIdx).trim();
+      const subject  = u.util.stripSubs(rest.slice(0, eqIdx).trim());
       const postBody = u.util.stripSubs(rest.slice(eqIdx + 1).trim());
       if (!subject) { u.send("%ch>BBS:%cn Subject is required."); return; }
       await createPost(u, board.num, subject, postBody, icTag);
     } else {
       // Open draft
-      const subject = rest.trim();
+      const subject = u.util.stripSubs(rest.trim());
       if (!subject) { u.send("%ch>BBS:%cn Subject is required."); return; }
       const draft   = getDraft(u);
       const tags    = draft?.tags ?? [];
@@ -155,7 +155,7 @@ Examples:
   +bb This is the first paragraph.
   +bb %r%rAnd a second paragraph after a blank line.`,
   exec: async (u: IUrsamuSDK) => {
-    const text  = (u.cmd.args[0] ?? "").trim();
+    const text  = u.util.stripSubs((u.cmd.args[0] ?? "").trim());
     const draft = getDraft(u);
     if (!draft) { u.send("%ch>BBS:%cn No active draft."); return; }
     const newBody = draft.body ? `${draft.body}\n${text}` : text;

@@ -2,7 +2,7 @@ import { addCmd } from "jsr:@ursamu/ursamu";
 import type { IUrsamuSDK } from "jsr:@ursamu/ursamu";
 import { getAllBoards, findBoard, getBoardPosts, getPost, parseBoardPost, parsePostSpec, resolveKey } from "../query.ts";
 import { canRead } from "../permissions.ts";
-import { getReadSet, markRead, markAllRead, markAllBoardsRead, getUnreadKeys, getUnreadCount, isMember } from "../tracking.ts";
+import { getReadSet, markRead, markAllRead, markAllBoardsRead, markAllUnread, markAllBoardsUnread, getUnreadKeys, getUnreadCount, isMember } from "../tracking.ts";
 import { bbDate, formatPost, EQ_LINE, DASH_LINE, WIDTH } from "../display.ts";
 
 // ─── +bbread ─────────────────────────────────────────────────────────────────
@@ -225,6 +225,36 @@ Examples:
     if (!(await canRead(u, board))) { u.send("%ch>BBS:%cn Access denied."); return; }
     await markAllRead(u, board.num);
     u.send(`%ch>BBS:%cn ${board.title} marked as read.`);
+  },
+});
+
+// ─── +bbunread ────────────────────────────────────────────────────────────────
+
+addCmd({
+  name: "+bbunread",
+  pattern: /^\+?bbunread\s*(.*)/i,
+  lock: "connected",
+  category: "BBS",
+  help: `+bbunread [<#>]  — Mark board posts as unread.
+
+SYNTAX
+  +bbunread [<#>]
+
+EXAMPLES
+  +bbunread 2     Mark all posts on board 2 as unread.
+  +bbunread       Mark all joined boards as unread.`,
+  exec: async (u: IUrsamuSDK) => {
+    const arg = (u.cmd.args[0] ?? "").trim();
+    if (!arg) {
+      await markAllBoardsUnread(u);
+      u.send("%ch>BBS:%cn All joined boards marked as unread.");
+      return;
+    }
+    const { board, error } = await findBoard(arg);
+    if (!board) { u.send(`%ch>BBS:%cn ${error}`); return; }
+    if (!(await canRead(u, board))) { u.send("%ch>BBS:%cn Access denied."); return; }
+    await markAllUnread(u, board.num);
+    u.send(`%ch>BBS:%cn ${board.title} marked as unread.`);
   },
 });
 

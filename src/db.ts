@@ -94,8 +94,8 @@ export interface ISeedBoardOptions {
 // Collections
 // ---------------------------------------------------------------------------
 
-export const boards: DBO<IBoard> = new DBO<IBoard>("server.bboards");
-export const posts: DBO<IPost> = new DBO<IPost>("server.bboard_posts");
+export const boards: DBO<IBoard> = new DBO<IBoard>("bbs.boards");
+export const posts: DBO<IPost> = new DBO<IPost>("bbs.posts");
 
 // ---------------------------------------------------------------------------
 // Counter helpers (derived from existing data — no external counters dep)

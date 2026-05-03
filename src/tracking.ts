@@ -1,4 +1,5 @@
 import type { IUrsamuSDK } from "jsr:@ursamu/ursamu";
+import { dbojs } from "jsr:@ursamu/ursamu";
 import { boards } from "./db.ts";
 import type { IBBConfig, IDraft } from "./db.ts";
 import { getBoardPosts } from "./query.ts";
@@ -40,6 +41,21 @@ export async function markAllBoardsRead(u: IUrsamuSDK): Promise<void> {
   await u.db.modify(u.me.id, "$set", { "data.bb_read": bbRead });
 }
 
+export async function markAllUnread(u: IUrsamuSDK, boardNum: number): Promise<void> {
+  const bbRead = (u.me.state.bb_read as Record<string, string[]>) ?? {};
+  bbRead[String(boardNum)] = [];
+  await u.db.modify(u.me.id, "$set", { "data.bb_read": bbRead });
+}
+
+export async function markAllBoardsUnread(u: IUrsamuSDK): Promise<void> {
+  const allBoards = await boards.query({});
+  const bbRead    = (u.me.state.bb_read as Record<string, string[]>) ?? {};
+  for (const board of allBoards.filter((b) => b.id !== "bbconfig")) {
+    bbRead[String(board.num)] = [];
+  }
+  await u.db.modify(u.me.id, "$set", { "data.bb_read": bbRead });
+}
+
 export async function getAllMessageKeys(boardNum: number): Promise<string[]> {
   const boardPosts = await getBoardPosts(boardNum);
   const keys: string[] = [];
@@ -60,6 +76,20 @@ export async function getUnreadKeys(u: IUrsamuSDK, boardNum: number): Promise<st
 
 export async function getUnreadCount(u: IUrsamuSDK, boardNum: number): Promise<number> {
   return (await getUnreadKeys(u, boardNum)).length;
+}
+
+export async function getTotalUnreadCountForPlayer(actorId: string): Promise<number> {
+  const player = await dbojs.queryOne({ id: actorId });
+  if (!player) return 0;
+  const bbRead = ((player.data?.bb_read) as Record<string, string[]>) ?? {};
+  const allBoards = (await boards.query({})).filter((b) => b.id !== "bbconfig");
+  let total = 0;
+  for (const board of allBoards) {
+    const allKeys = await getAllMessageKeys(board.num);
+    const readSet = new Set(bbRead[String(board.num)] ?? []);
+    total += allKeys.filter((k) => !readSet.has(k)).length;
+  }
+  return total;
 }
 
 // ---------------------------------------------------------------------------

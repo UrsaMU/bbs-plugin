@@ -2,6 +2,7 @@ import { dbojs } from "jsr:@ursamu/ursamu";
 import { boards, posts, getNextPostNum } from "./db.ts";
 import type { IBoard, IPost } from "./db.ts";
 import { getAllBoards, getBoardPosts, getPost } from "./query.ts";
+import { isWebhookUrlSafe } from "./url-safety.ts";
 
 const JSON_HEADERS = { "Content-Type": "application/json" };
 
@@ -105,7 +106,16 @@ export async function bboardsRouteHandler(req: Request, userId: string | null): 
     try { body = await req.json(); } catch { return json({ error: "Invalid JSON" }, 400); }
     const allowed: (keyof IBoard)[] = ["title", "readLock", "writeLock", "timeout", "anonymous", "category", "type", "webhookUrl", "archiveTo"];
     const patch: Partial<IBoard> = {};
-    for (const k of allowed) { if (k in body) (patch as Record<string, unknown>)[k] = body[k]; }
+    for (const k of allowed) {
+      if (!(k in body)) continue;
+      if (k === "webhookUrl") {
+        const wUrl = body[k];
+        if (typeof wUrl === "string" && wUrl !== "" && !isWebhookUrlSafe(wUrl)) {
+          return json({ error: "Invalid webhook URL." }, 400);
+        }
+      }
+      (patch as Record<string, unknown>)[k] = body[k];
+    }
     await boards.modify({ id: board.id }, "$set", patch);
     return json({ ...board, ...patch });
   }
