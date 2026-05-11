@@ -1,12 +1,11 @@
-import { addCmd } from "jsr:@ursamu/ursamu";
-import type { IUrsamuSDK } from "jsr:@ursamu/ursamu";
+import { addCmd } from "@ursamu/ursamu";
+import type { IUrsamuSDK } from "@ursamu/ursamu";
 import { posts, getNextPostNum } from "../db.ts";
 import type { IPost, IReply } from "../db.ts";
 import { findBoard, getPost, getNextReplyNum } from "../query.ts";
 import { canRead, canWrite } from "../permissions.ts";
 import { getDraft, setDraft, clearDraft, getSig } from "../tracking.ts";
 import { fireWebhook } from "../webhook.ts";
-import { formatPost } from "../display.ts";
 
 // ─── +bbpost ─────────────────────────────────────────────────────────────────
 
@@ -175,7 +174,7 @@ addCmd({
 
 Examples:
   +bbproof    Show draft contents.`,
-  exec: async (u: IUrsamuSDK) => {
+  exec: (u: IUrsamuSDK) => {
     const draft = getDraft(u);
     if (!draft) { u.send("%ch>BBS:%cn No active draft."); return; }
     const icLabel = draft.icTag ? ` [${draft.icTag.toUpperCase()}]` : "";
@@ -312,7 +311,7 @@ Examples:
     if (post.authorId !== u.me.id && !(await canEdit(u, post))) {
       u.send("%ch>BBS:%cn You can only link scenes to your own posts."); return;
     }
-    await posts.modify({ id: post.id }, "$set", { sceneId: sceneId ?? null });
+    await posts.modify({ id: post.id }, "$set", { sceneId: sceneId ?? undefined });
     u.send(sceneId ? `%ch>BBS:%cn Scene %cc${sceneId}%cn linked to ${board.num}/${post.num}.` : `%ch>BBS:%cn Scene link removed from ${board.num}/${post.num}.`);
   },
 });
@@ -327,6 +326,6 @@ function parseBoardPostArg(s: string): { boardStr: string; postStr: string } | n
   return { boardStr: s.slice(0, idx).trim(), postStr: s.slice(idx + 1).trim() };
 }
 
-function canEdit(u: IUrsamuSDK, post: IPost): boolean {
+function canEdit(u: IUrsamuSDK, _post: IPost): boolean {
   return u.me.flags.has("admin") || u.me.flags.has("wizard") || u.me.flags.has("superuser");
 }

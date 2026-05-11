@@ -1,4 +1,4 @@
-import { dbojs } from "jsr:@ursamu/ursamu";
+import { dbojs } from "@ursamu/ursamu";
 import { boards, posts, getNextPostNum } from "./db.ts";
 import type { IBoard, IPost } from "./db.ts";
 import { getAllBoards, getBoardPosts, getPost } from "./query.ts";
@@ -27,8 +27,8 @@ async function canAccessBoard(userId: string, board: IBoard): Promise<boolean> {
   if (!player) return false;
   if (String(player.flags ?? "").match(/admin|wizard|superuser/)) return true;
   if (board.readLock === "faction" && board.ownerId) {
-    const faction = await dbojs.queryOne({ id: board.ownerId });
-    return (faction?.contents ?? []).includes(userId);
+    const faction = await dbojs.queryOne({ id: board.ownerId }) as { contents?: string[] } | null | false;
+    return (faction && faction.contents ? faction.contents : []).includes(userId);
   }
   return false;
 }
@@ -154,11 +154,11 @@ export async function bboardsRouteHandler(req: Request, userId: string | null): 
     const subject = typeof body.subject === "string" ? body.subject.trim() : "";
     const text    = typeof body.body    === "string" ? body.body.trim()    : "";
     if (!subject || !text) return json({ error: "subject and body are required" }, 400);
-    const player  = await dbojs.queryOne({ id: userId });
+    const player  = await dbojs.queryOne({ id: userId }) as { name?: string } | null | false;
     const num     = await getNextPostNum(board.num);
     const post: IPost = {
       id: crypto.randomUUID(), boardId: board.num, num, subject, body: text,
-      authorId: userId, authorName: player?.name ?? "Unknown",
+      authorId: userId, authorName: (player && player.name) ? player.name : "Unknown",
       createdAt: Date.now(), timeout: 0, editCount: 0,
       replies: [], sticky: false, tags: [], flags: [], watchers: [],
     };
@@ -242,7 +242,7 @@ export async function bboardsRouteHandler(req: Request, userId: string | null): 
     const keys   = bPosts.map((p) => String(p.num));
     const bbRead = ((player.data?.bb_read) as Record<string, string[]>) ?? {};
     bbRead[String(board.num)] = keys;
-    await dbojs.modify({ id: userId }, "$set", { "data.bb_read": bbRead });
+    await dbojs.modify({ id: userId }, "$set", { "data.bb_read": bbRead } as unknown as Record<string, unknown>);
     return json({ read: true });
   }
 

@@ -1,72 +1,74 @@
-# bbs — UrsaMU Plugin
+# bbs-plugin — Claude Code Instructions
 
-## Setup (do this first)
+## Project identity
 
-```bash
-# Pin to a specific version to avoid unexpected changes, e.g.:
-#   npx @lhi/ursamu-dev@1.0.0
-npx @lhi/ursamu-dev         # install the dev skill (pin version in production)
-ursamu-dev --install-hooks  # block commits that fail the audit
-```
+External UrsaMU plugin: full-featured Myrddin-style BBS — boards,
+threading, categories, IC/OOC tags, sticky posts, board moderators,
+post flagging, reply watching, Discord webhooks, scene linking, archive
+boards, and v2.3 format-attribute hooks on the listings. Targets
+ursamu **^2.3.0**.
 
-Activate in Claude Code: `/ursamu-dev`
-
-The skill enforces a six-stage pipeline (Design → Generate → Audit → Refine → Test → Docs)
-and knows every import path, SDK method, lock level, and security pattern.
-Use it for every feature — no exceptions.
+- **Ecosystem skill**: load `/ursamu-dev` before working here.
+- **API reference**: `/Users/kumakun/.claude/skills/ursamu-dev/references/api-reference.md`
+  is authoritative for every type, method, import path, and event payload.
+  Read it before writing code. Never guess signatures.
 
 ---
 
 ## Commands
 
 ```bash
-deno task test                   # full suite — must stay green
-deno lint                        # must be clean
+deno task check    # type-check entry (index.ts)
+deno task lint     # must be clean
+deno task test     # full suite
 ```
 
-## Pre-commit checklist
+## Pre-commit checklist (all must pass)
 
 ```bash
-deno lint                        # lint
-deno task test --no-check        # tests
+deno check --unstable-kv index.ts
+deno lint
+deno test --allow-all --unstable-kv --no-check tests/
 ```
 
 ---
 
-## Structure
+## Repo layout
 
 ```
-src/
-├── index.ts          IPlugin — init(), remove(), imports command modules
-├── db.ts             DBO collections (boards, posts), types, seedBoards()
-├── query.ts          findBoard, getPost, getBoardPosts, parseBoardPost, etc.
-├── permissions.ts    canRead, canWrite, isStaff, isBoardMod
-├── tracking.ts       Per-player state: read-tracking, drafts, membership,
-│                     notifications, signatures, config
-├── display.ts        formatPost, bbDate, EQ_LINE, DASH_LINE, WIDTH
-├── cleanup.ts        startCleanupInterval — post expiry / archive migration
-├── router.ts         bboardsRouteHandler — /api/v1/boards REST endpoint
-├── webhook.ts        fireWebhook — Discord webhook notifications
-├── url-safety.ts     isWebhookUrlSafe — SSRF / private-IP guard
-└── commands/
-    ├── reading.ts    +bbread, +bbnext, +bbcatchup
-    ├── posting.ts    +bbpost, +bb, +bbproof, +bbtoss, +bbreply, +bbtag, +bblink
-    ├── social.ts     +bblist, +bbjoin, +bbleave, +bbnotify, +bbwatch, +bbsig, +bbsearch
-    ├── management.ts +bbremove, +bbmove, +bbedit, +bbsticky, +bbflag
-    └── staff.ts      +bbnewgroup, +bbcleargroup, +bbconfirm, +bblock, +bbwritelock,
-                      +bbtimeout, +bbconfig, +bbmod, +bbcategory, +bbwebhook,
-                      +bbarchive, +bbreview, +bbunflag
-tests/                Deno test files
+index.ts                 Plugin entry — re-exports src/index.ts default
+mod.ts                   JSR exports (default plugin + DB types)
+src/index.ts             IPlugin object — init/remove, route + hooks
+src/commands/            addCmd registrations (reading, posting, social, …)
+src/db.ts                DBO("bbs.boards") + DBO("bbs.posts") + interfaces
+src/display.ts           Render helpers (formatPost, header, bbDate)
+src/query.ts             findBoard / getBoardPosts / parsing helpers
+src/tracking.ts          Per-player read/unread tracking
+src/permissions.ts       canRead / canPost / canModerate
+src/router.ts            REST handler for /api/v1/boards
+src/cleanup.ts           Post-expiry sweep
+src/webhook.ts           Discord webhook poster (SSRF-guarded)
+tests/                   Deno test files
+ursamu.plugin.json       Plugin manifest consumed by ursamu loader
 ```
 
 ---
 
-## Import paths
+## Imports
 
 ```typescript
-import { addCmd, DBO, gameHooks, registerPluginRoute } from "@ursamu/ursamu";
-import type { IPlugin, IUrsamuSDK, IDBObj, SessionEvent } from "@ursamu/ursamu";
+import {
+  addCmd, dbojs, DBO, gameHooks, send,
+  registerPluginRoute,
+  resolveFormat, type FormatSlot,
+  registerFormatHandler, unregisterFormatHandler,
+} from "@ursamu/ursamu";
+import type { ICmd, IPlugin, IDBObj, IUrsamuSDK, SessionEvent } from "@ursamu/ursamu";
 ```
+
+The bare specifier resolves through `deno.json` import map to
+`jsr:@ursamu/ursamu@^2.3.0`. DBO namespace rule: collection names
+prefixed with `bbs.` (e.g. `bbs.boards`, `bbs.posts`).
 
 ---
 
@@ -74,97 +76,79 @@ import type { IPlugin, IUrsamuSDK, IDBObj, SessionEvent } from "@ursamu/ursamu";
 
 ```typescript
 addCmd({
-  name: "+bbpost",
-  pattern: /^\+?bbpost(?:\/(ic|ooc))?\s*(.*)/i,  // args[0]=switch, args[1]=rest
+  name: "+bbread",
+  pattern: /^\+?bbread\s*(.*)/i,
   lock: "connected",
   category: "BBS",
-  help: `+bbpost[/switch] <arg>  — Description.
-
-Switches:
-  /switch   What this switch does.
-
-Examples:
-  +bbpost foo    Does the thing.
-  +bbpost bar    Does the other thing.`,
+  help: `+bbread [<args>]  — Read BBS boards or posts.`,
   exec: async (u: IUrsamuSDK) => {
-    const sw  = (u.cmd.args[0] ?? "").toLowerCase().trim();
-    const arg = u.util.stripSubs(u.cmd.args[1] ?? "").trim();  // strip codes FIRST
+    const args = (u.cmd.args[0] ?? "").trim();
+    // ...
   },
 });
 ```
 
-### Pattern cheat-sheet
+### Lock levels — same as core
 
-| Intent | Pattern | args |
-|--------|---------|------|
-| No args | `/^inventory$/i` | — |
-| One arg | `/^look\s+(.*)/i` | `[0]` |
-| Switch + arg | `/^\+cmd(?:\/(\S+))?\s*(.*)/i` | `[0]`=sw, `[1]`=rest |
-| Two parts (=) | `/^@name\s+(.+)=(.+)/i` | `[0]`, `[1]` |
-
-### Lock levels
-
-| String | Who can use it |
-|--------|----------------|
-| `""` | Login screen (unauthenticated) |
-| `"connected"` | Any logged-in player |
-| `"connected builder+"` | Builder flag or higher |
-| `"connected admin+"` | Admin flag or higher |
-| `"connected wizard"` | Wizard only |
+`""`, `"connected"`, `"connected builder+"`, `"connected admin+"`,
+`"connected wizard"`.
 
 ---
 
-## Plugin lifecycle (index.ts)
+## Format hooks (v2.3+)
+
+The board listing (`+bbread` with no args) and the per-board post
+listing (`+bbread <board#>`) both support two slots resolved via
+`resolveFormat`:
+
+| Slot | `%0` value | Effect |
+|------|------------|--------|
+| `BBFORMAT` | Default rendered block | Full listing override |
+| `BBROWFORMAT` | Default rendered row | Per-row override (one board or one post) |
+
+Two-tier lookup (mirrors WHO/PS): `#0` (game-wide) → enactor (`u.me`) →
+plugin handler → built-in default.
+
+Helper (in `src/commands/reading.ts`):
 
 ```typescript
-import "./commands/reading.ts";  // Phase 1 — addCmd() fires here, NOT in init()
-
-const onLogin = (e: SessionEvent) => { /* named ref — required for remove() */ };
-
-export const plugin: IPlugin = {
-  name: "bbs",
-  version: "1.0.0",
-  description: "One sentence.",
-  init:   () => { gameHooks.on("player:login", onLogin); return true; },
-  remove: () => { gameHooks.off("player:login", onLogin); },  // same ref
-};
+async function resolveGlobalFormat(u, slot, defaultArg) {
+  const root = await dbojs.queryOne({ id: "0" });
+  if (root) {
+    const onRoot = await resolveFormat(u, root as IDBObj, slot as FormatSlot, defaultArg);
+    if (onRoot != null) return onRoot;
+  }
+  return await resolveFormat(u, u.me, slot as FormatSlot, defaultArg);
+}
 ```
 
-Rules: `addCmd()` never inside `init()` · `init()` must return `true` · every `.on()` needs a matching `.off()` using the same named function.
-
-**DBO namespace rule**: always prefix with `bbs.`:
-
-```typescript
-const records = new DBO<IRecord>("bbs.records");  // correct
-const records = new DBO<IRecord>("records");       // wrong — collides
-```
-
-Note: the existing collections in `db.ts` use the legacy `server.bboards` / `server.bboard_posts` namespace. New collections introduced by this plugin must use `bbs.<collection>`.
+Cast unknown slot names as `slot as FormatSlot` — plugin-defined slot
+names are not in the core union but `resolveFormat` accepts any string
+at runtime.
 
 ---
 
-## Key SDK calls
+## Key SDK idioms
 
 ```typescript
-const target = await u.util.target(u.me, arg, true);  // true = global search
+// Strip MUSH codes BEFORE DB ops or length checks (always)
+const clean = u.util.stripSubs(u.cmd.args[0]).trim();
+
+// DB writes — op must be "$set" | "$inc" | "$unset" only
+await posts.modify({ id: p.id }, "$set", { editCount: p.editCount + 1 });
+
+// Target resolution — always guard
+const target = await u.util.target(u.me, raw, true);
 if (!target) { u.send("Not found."); return; }
-
-if (!(await u.canEdit(u.me, target))) { u.send("Permission denied."); return; }
-
-await u.db.modify(target.id, "$set",  { "data.field": value });
-await u.db.modify(target.id, "$inc",  { "data.score": 1 });
-await u.db.modify(target.id, "$unset",{ "data.tmp": "" });
-
-u.send("Message.", target.id);  // optional second arg = recipient socket id
-
-const isStaff = u.me.flags.has("admin") || u.me.flags.has("wizard") || u.me.flags.has("superuser");
 ```
+
+---
 
 ## MUSH color codes
 
 | Code | Effect | Code | Effect |
 |------|--------|------|--------|
-| `%ch` | Bold | `%cn` | Reset (always close with this) |
+| `%ch` | Bold | `%cn` | Reset (close every open code) |
 | `%cr` | Red | `%cg` | Green |
 | `%cb` | Blue | `%cy` | Yellow |
 | `%cw` | White | `%cc` | Cyan |
@@ -172,97 +156,70 @@ const isStaff = u.me.flags.has("admin") || u.me.flags.has("wizard") || u.me.flag
 
 ---
 
-## Player-inline state pattern
+## Plugin lifecycle (three phases — non-negotiable)
 
-```typescript
-// Reading (always default)
-const ps = (u.me.state.bbs ?? {}) as IBBSPlayerState;
-
-// Writing (always spread to preserve other fields)
-await u.db.modify(u.me.id, "$set", { "state.bbs": { ...ps, field: value } });
+```
+Phase 1 — module load   import "./commands/*.ts" → addCmd() fires at load time
+Phase 2 — init()        register routes, attach gameHooks listeners → return true
+Phase 3 — remove()      detach hooks with the SAME named function reference
 ```
 
-Use `state.bbs` for per-player state (read tracking, draft, membership, notifications, signature). Use `new DBO("bbs.collection")` for records with their own lifecycle.
+Pair every `gameHooks.on(evt, fn)` in `init()` with `gameHooks.off(evt, fn)`
+in `remove()` using the same named reference.
 
 ---
 
-## Test boilerplate
+## Test patterns
+
+Required boilerplate for tests that touch service layer:
 
 ```typescript
 const OPTS = { sanitizeResources: false, sanitizeOps: false };
-Deno.test("happy path", OPTS, async () => { /* ... */ });
+Deno.test("desc", OPTS, async () => { /* ... */ });
 ```
 
-### Required test cases for every command
+Format-hook integration tests live in
+`tests/bbs_formats_integration.test.ts` — they use real `dbojs` and the
+plugin-handler registry. Required cases:
 
-- Happy path — correct output and DB call
-- Null target — graceful not-found message, no DB write
-- Permission denied — `canEdit` false, no DB write
-- DB op is `$set`/`$inc`/`$unset` (assert exact args)
-- Admin guard — non-admin rejected (if admin command)
-- `stripSubs` called before DB (MUSH codes stripped)
+- no attrs / no handler → default rendering preserved
+- `BBFORMAT` handler set → block override wins (single `u.send` call)
+- `BBROWFORMAT` handler set → per-row override wraps every row
+- `BBFORMAT` also applies to the per-board post listing
+- two-tier: `#0` consulted before enactor
 
-Add a `tests/security/` directory for exploit→fix tests; one file per bug found.
+Close DB in the last test: `await DBO.close()`.
 
 ---
 
 ## Code style (non-negotiable)
 
-- **Early return** over nested conditions
-- **No function longer than 50 lines** — decompose
-- **No file longer than 200 lines** — split
-- **No bare `catch`** — always `catch (e: unknown)`
-- **Library-first** — if the SDK does it, use the SDK
-- **No deep nesting** — max 3 levels
-- **No comments** unless the WHY is non-obvious
+- Early return over nested conditions.
+- No function longer than 50 lines.
+- No file longer than 200 lines.
+- No bare `catch` — always `catch (e: unknown)`.
+- Library-first.
+- Max nesting depth 3.
 
 ---
 
 ## Audit checklist
 
-- [ ] `u.util.stripSubs()` on all user strings before DB ops or length checks
-- [ ] `await u.canEdit()` before modifying any object not owned by `u.me`
-- [ ] DB writes use `"$set"` / `"$inc"` / `"$unset"` — never raw overwrite
-- [ ] `u.util.target()` null-checked before use
-- [ ] All `%c*` color codes closed with `%cn`
-- [ ] `gameHooks.on()` in `init()` paired with matching `gameHooks.off()` in `remove()` (same ref)
-- [ ] DBO collection prefixed: `"bbs.<collection>"` (new collections only — see namespace note above)
-- [ ] REST route returns 401 before any work when `userId` is null
+- [ ] `u.util.stripSubs()` on user strings before DB ops or length checks
+- [ ] DB writes use `$set` / `$inc` / `$unset`
+- [ ] `u.util.target()` results null-checked
+- [ ] All `%c*` codes closed with `%cn`
+- [ ] Every `addCmd` has `help:` with syntax + ≥2 examples
+- [ ] `gameHooks.on()` paired with matching `gameHooks.off()`
+- [ ] DBO namespace prefixed (`bbs.*`)
+- [ ] REST handlers return 401 before any work when `userId` is null
 - [ ] `init()` returns `true`
-- [ ] Every `addCmd` has `help:` with syntax line + examples
-- [ ] Webhook URLs validated with `isWebhookUrlSafe()` before storing or firing
-- [ ] Board moderator checks use `isBoardMod(u, board)` — not a raw flag check
-- [ ] Watcher list capped at 50 at write time (slice before includes check)
-- [ ] Help files organised into subdirectories (not a flat list) when there are more than ~6 commands
-
-### Help directory organisation
-
-The BBS plugin has 30+ commands — help files **must** use subdirectories. The current structure is:
-
-```
-help/
-├── bbs.md              ← top-level index (TOPICS + QUICK START)
-├── reading/            ← +bbread, +bbnext, +bbcatchup, +bbunread
-├── posting/            ← +bbpost, +bb, +bbproof, +bbtoss, +bbreply, +bbtag, +bblink
-├── social/             ← +bblist, +bbjoin, +bbleave, +bbnotify, +bbwatch, +bbsig, +bbsearch
-├── management/         ← +bbremove, +bbmove, +bbedit, +bbsticky, +bbflag
-└── staff/              ← board/moderation admin commands
-```
-
-Each subdirectory has an `index.md` that lists its commands and links back to `+help bbs`. Per-command files link back to their group index in `SEE ALSO`. When adding a new command, place its help file in the appropriate subdirectory and add it to that group's `index.md`.
+- [ ] Format-hook calls use `resolveGlobalFormat` two-tier helper
 
 ---
 
 ## PRs and commits
 
-- No AI attribution in commit messages or code comments.
-- Use squash-merge for feature PRs.
-- Tag versions after squash-merge: `git tag v<version> && git push --tags`.
-
----
-
-## Full API reference
-
-`~/.claude/skills/ursamu-dev/references/api-reference.md` — every type, SDK method, event payload, and lock expression. Read it before writing any code.
-
-Activate the full dev skill with: `/ursamu-dev`
+- No Claude/AI attribution in PR titles, commit messages, or code comments.
+- Squash-merge feature PRs.
+- Tag versions after merge: `git tag v<version> && git push --tags`.

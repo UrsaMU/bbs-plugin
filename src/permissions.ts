@@ -1,5 +1,5 @@
-import { dbojs } from "jsr:@ursamu/ursamu";
-import type { IUrsamuSDK } from "jsr:@ursamu/ursamu";
+import { dbojs } from "@ursamu/ursamu";
+import type { IUrsamuSDK } from "@ursamu/ursamu";
 import type { IBoard } from "./db.ts";
 
 /** Returns true if the caller has staff-level privilege. */
@@ -49,7 +49,7 @@ async function isFactionMember(
   factionId: string,
 ): Promise<boolean> {
   try {
-    const faction = await dbojs.queryOne({ id: factionId });
+    const faction = await dbojs.queryOne({ id: factionId }) as { contents?: string[] } | null | false;
     if (!faction) return false;
     const contents: string[] = faction.contents ?? [];
     return contents.includes(playerId);
