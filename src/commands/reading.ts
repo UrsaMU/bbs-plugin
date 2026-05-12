@@ -1,28 +1,9 @@
-import { addCmd, dbojs, resolveFormat, type FormatSlot } from "@ursamu/ursamu";
-import type { IUrsamuSDK, IDBObj } from "@ursamu/ursamu";
+import { addCmd, resolveGlobalFormat } from "@ursamu/ursamu";
+import type { IUrsamuSDK, FormatSlot } from "@ursamu/ursamu";
 import { getAllBoards, findBoard, getBoardPosts, getPost, parseBoardPost, parsePostSpec, resolveKey } from "../query.ts";
 import { canRead } from "../permissions.ts";
 import { getReadSet, markRead, markAllRead, markAllBoardsRead, markAllUnread, markAllBoardsUnread, getUnreadKeys, getUnreadCount, isMember } from "../tracking.ts";
 import { bbDate, formatPost, EQ_LINE, DASH_LINE, WIDTH } from "../display.ts";
-
-/**
- * Two-tier format lookup: check `#0` (game-wide skin) first, then the
- * enactor (`u.me`) for a per-player skin. Returns null if neither yields
- * an override. Mirrors the WHO/PS pattern in ursamu core.
- */
-async function resolveGlobalFormat(
-  u: IUrsamuSDK,
-  slot: string,
-  defaultArg: string,
-): Promise<string | null> {
-  const root = await dbojs.queryOne({ id: "0" });
-  if (root) {
-    const rootObj = root as unknown as IDBObj;
-    const onRoot = await resolveFormat(u, rootObj, slot as FormatSlot, defaultArg);
-    if (onRoot != null) return onRoot;
-  }
-  return await resolveFormat(u, u.me, slot as FormatSlot, defaultArg);
-}
 
 // ─── +bbread ─────────────────────────────────────────────────────────────────
 
@@ -90,7 +71,7 @@ export async function doBBList(u: IUrsamuSDK): Promise<void> {
       const title   = board.title.padEnd(35).slice(0, 35);
       const unreadStr = unread > 0 ? `%ch%cy${unread}%cn` : "0";
       const defaultRow = `${num} ${modMark} %cc${title}%cn  ${last.padEnd(10)} ${String(total).padStart(4)}  (${unreadStr} new)`;
-      const rowOverride = await resolveGlobalFormat(u, "BBROWFORMAT", defaultRow);
+      const rowOverride = await resolveGlobalFormat(u, "BBROWFORMAT" as FormatSlot, defaultRow);
       lines.push(rowOverride != null ? rowOverride : defaultRow);
     }
   }
@@ -99,7 +80,7 @@ export async function doBBList(u: IUrsamuSDK): Promise<void> {
   lines.push("%cb" + EQ_LINE + "%cn");
 
   const defaultBlock = lines.join("\n");
-  const blockOverride = await resolveGlobalFormat(u, "BBFORMAT", defaultBlock);
+  const blockOverride = await resolveGlobalFormat(u, "BBFORMAT" as FormatSlot, defaultBlock);
   u.send(blockOverride != null ? blockOverride : defaultBlock);
 }
 
@@ -115,21 +96,21 @@ export async function doListPosts(u: IUrsamuSDK, boardStr: string): Promise<void
     const subj    = (post.sticky ? "[S] " : "") + post.subject.slice(0, 40);
     const msgNum  = `${board.num}/${post.num}`;
     const defaultRow = `%cc${msgNum.padEnd(6)}%cn${subj.padEnd(43)}${bbDate(post.createdAt).padEnd(13)}${author}`;
-    const rowOverride = await resolveGlobalFormat(u, "BBROWFORMAT", defaultRow);
+    const rowOverride = await resolveGlobalFormat(u, "BBROWFORMAT" as FormatSlot, defaultRow);
     lines.push(rowOverride != null ? rowOverride : defaultRow);
     for (let i = 0; i < (post.replies ?? []).length; i++) {
       const r      = post.replies[i];
       const isLast = i === post.replies.length - 1;
       const conn   = isLast ? "`" : "|";
       const replyDefault = `  ${conn}  %cc${board.num}/${post.num}.${r.num}%cn  ${r.subject.slice(0, 38).padEnd(38)}  ${bbDate(r.createdAt).padEnd(13)}${board.anonymous ? "Anonymous" : r.authorName}`;
-      const replyOverride = await resolveGlobalFormat(u, "BBROWFORMAT", replyDefault);
+      const replyOverride = await resolveGlobalFormat(u, "BBROWFORMAT" as FormatSlot, replyDefault);
       lines.push(replyOverride != null ? replyOverride : replyDefault);
     }
   }
   lines.push("%cb" + EQ_LINE + "%cn");
 
   const defaultBlock = lines.join("\n");
-  const blockOverride = await resolveGlobalFormat(u, "BBFORMAT", defaultBlock);
+  const blockOverride = await resolveGlobalFormat(u, "BBFORMAT" as FormatSlot, defaultBlock);
   u.send(blockOverride != null ? blockOverride : defaultBlock);
 }
 

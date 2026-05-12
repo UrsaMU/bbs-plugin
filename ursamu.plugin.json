@@ -1,8 +1,8 @@
 {
   "name": "bbs",
-  "version": "2.3.0",
+  "version": "2.3.1",
   "description": "Full-featured Myrddin-style BBS — boards, threading, categories, IC/OOC tags, sticky posts, moderation, Discord webhooks, scene linking, and format-attribute hooks.",
-  "ursamu": ">=2.3.0",
+  "ursamu": ">=2.3.3",
   "author": "UrsaMU",
   "license": "MIT",
   "main": "mod.ts"

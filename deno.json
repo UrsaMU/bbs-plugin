@@ -1,6 +1,6 @@
 {
   "name": "@ursamu/bbs-plugin",
-  "version": "2.3.0",
+  "version": "2.3.1",
   "exports": "./mod.ts",
   "publish": {
     "include": ["src", "mod.ts", "index.ts", "deno.json", "ursamu.plugin.json", "LICENSE", "README.md"],
@@ -15,7 +15,7 @@
     "exclude": ["tests/security/", "tests/security_watcher_cap.test.ts", "tests/permissions.test.ts", "tests/helpers/"]
   },
   "imports": {
-    "@ursamu/ursamu":    "jsr:@ursamu/ursamu@^2.3.0",
+    "@ursamu/ursamu":    "jsr:@ursamu/ursamu@^2.3.3",
     "@std/assert":       "jsr:@std/assert@^1.0.0",
     "@std/testing/bdd":  "jsr:@std/testing@^1.0.0/bdd"
   }
