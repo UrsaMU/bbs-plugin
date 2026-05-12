@@ -1,6 +1,6 @@
-import type { IPlugin } from "jsr:@ursamu/ursamu";
-import { registerPluginRoute, gameHooks, send } from "jsr:@ursamu/ursamu";
-import type { SessionEvent } from "jsr:@ursamu/ursamu";
+import type { IPlugin } from "@ursamu/ursamu";
+import { registerPluginRoute, gameHooks, send } from "@ursamu/ursamu";
+import type { SessionEvent } from "@ursamu/ursamu";
 import { bboardsRouteHandler } from "./router.ts";
 import { startCleanupInterval } from "./cleanup.ts";
 import { getTotalUnreadCountForPlayer } from "./tracking.ts";
@@ -18,7 +18,7 @@ const onBBSLogin = async (e: SessionEvent): Promise<void> => {
 
 const plugin: IPlugin = {
   name: "bbs",
-  version: "1.0.0",
+  version: "2.3.0",
   description:
     "Full-featured BBS — boards, threading, categories, IC/OOC tags, sticky posts, board moderators, post flagging, reply watching, Discord webhooks, scene linking, and archive boards.",
 

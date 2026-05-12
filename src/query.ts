@@ -1,4 +1,4 @@
-import { dbojs } from "jsr:@ursamu/ursamu";
+import { dbojs } from "@ursamu/ursamu";
 import { boards, posts } from "./db.ts";
 import type { IBoard, IPost, IReply } from "./db.ts";
 
@@ -165,7 +165,7 @@ export async function renumberPosts(boardNum: number): Promise<void> {
         const newP = numMap.get(parseInt(key, 10));
         return newP !== undefined ? String(newP) : key;
       });
-      await dbojs.modify({ id: player.id }, "$set", { "data.bb_read": readData });
+      await dbojs.modify({ id: player.id }, "$set", { "data.bb_read": readData } as unknown as Record<string, unknown>);
     }
   } catch {
     // Migration failure is non-fatal
